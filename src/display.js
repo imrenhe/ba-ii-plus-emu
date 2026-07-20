@@ -1,34 +1,47 @@
-// display.js — renders the two-line LCD from calculator state.
+// display.js — renders the LCD: an indicator strip plus the main line showing
+// the active field label (left) and its value (right), mirroring the device.
 
 export function createDisplay(root, calc) {
   root.innerHTML = `
     <div class="lcd">
       <div class="lcd-flags">
-        <span class="flag flag-2nd">2ND</span>
-        <span class="flag flag-bgn">BGN</span>
-        <span class="flag flag-cpt">CPT</span>
-        <span class="flag flag-msg"></span>
+        <span class="flag" data-f="second">2ND</span>
+        <span class="flag" data-f="inverse">INV</span>
+        <span class="flag" data-f="hyp">HYP</span>
+        <span class="flag" data-f="compute">CPT</span>
+        <span class="flag flag-ws" data-f="ws"></span>
+        <span class="flag flag-spacer"></span>
+        <span class="flag" data-f="enter">ENTER</span>
+        <span class="flag" data-f="nav">↓↑</span>
+        <span class="flag" data-f="set">SET</span>
+        <span class="flag" data-f="begin">BGN</span>
+        <span class="flag" data-f="rad">RAD</span>
       </div>
-      <div class="lcd-label" aria-hidden="true"></div>
-      <div class="lcd-value" role="status" aria-live="polite"></div>
+      <div class="lcd-line">
+        <span class="lcd-label"></span>
+        <span class="lcd-value" role="status" aria-live="polite"></span>
+      </div>
     </div>`;
 
   const labelEl = root.querySelector('.lcd-label');
   const valueEl = root.querySelector('.lcd-value');
-  const flag2nd = root.querySelector('.flag-2nd');
-  const flagBgn = root.querySelector('.flag-bgn');
-  const flagCpt = root.querySelector('.flag-cpt');
-  const flagMsg = root.querySelector('.flag-msg');
+  const flagEls = [...root.querySelectorAll('.flag[data-f]')];
 
   function render() {
     const d = calc.getDisplay();
-    labelEl.textContent = d.label || ' ';
+    labelEl.textContent = d.label ? d.label + (isSetting(d) ? '' : ' =') : '';
     valueEl.textContent = d.value;
     valueEl.classList.toggle('is-error', d.value === 'Error');
-    flag2nd.classList.toggle('on', d.flags.second);
-    flagBgn.classList.toggle('on', d.flags.begin);
-    flagCpt.classList.toggle('on', d.flags.compute);
-    flagMsg.textContent = d.flags.message || '';
+    for (const el of flagEls) {
+      const f = el.dataset.f;
+      if (f === 'ws') { el.textContent = d.flags.worksheet || ''; el.classList.toggle('on', !!d.flags.worksheet); }
+      else el.classList.toggle('on', !!d.flags[f]);
+    }
+  }
+
+  // A setting/label like "END/BGN" shouldn't show "= value"; heuristic: value is non-numeric.
+  function isSetting(d) {
+    return d.flags.set;
   }
 
   calc.onChange(render);

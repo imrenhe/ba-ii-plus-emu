@@ -1,62 +1,82 @@
-// depreciation.js — depreciation schedules (BA II Plus DEPR worksheet).
+// depreciation.js — depreciation schedules for the DEPR worksheet.
 //
-// Supports the worksheet's core methods: straight line (SL), sum-of-the-years'-
-// digits (SYD), and declining balance (DB, e.g. 200 = double-declining). Each
-// returns a per-year schedule with depreciation, remaining book value (RBV),
-// and remaining depreciable value (RDV).
+// Methods: SL (straight line), SYD (sum-of-years'-digits), DB (declining
+// balance), DBX (declining balance with automatic crossover to straight line),
+// SLF (straight line, French — treated as SL here). Supports a partial first
+// year via M01, the month placed in service (1 = full first year).
+//
+// The per-life-year amounts are computed as if the asset were placed in service
+// at the start of a year, then prorated across calendar years by the first-year
+// fraction f1 = (13 − M01)/12. This conserves the total depreciable base and
+// matches the device's behavior for the common cases.
 
-/**
- * @param {object} p
- * @param {'SL'|'SYD'|'DB'} p.method
- * @param {number} p.cost      depreciable cost basis
- * @param {number} p.salvage   salvage value
- * @param {number} p.life      useful life in years
- * @param {number} [p.factor]  declining-balance factor in percent (e.g. 200 for DDB)
- * @returns {{year:number, depreciation:number, rbv:number, rdv:number}[]}
- */
-export function depreciate({ method, cost, salvage, life, factor = 200 }) {
-  const rows = [];
-  const depreciable = cost - salvage;
-  let book = cost;
-
-  if (method === 'SL') {
-    const annual = depreciable / life;
-    for (let y = 1; y <= life; y++) {
-      const dep = annual;
-      book -= dep;
-      rows.push(row(y, dep, book, salvage));
-    }
-    return rows;
+/** Depreciation amount for each full life-year (index 0 = year 1), before proration. */
+function lifeYearAmounts({ method, cost, salvage, life, factor = 200 }) {
+  const base = cost - salvage;
+  const out = [];
+  if (method === 'SL' || method === 'SLF') {
+    for (let i = 0; i < life; i++) out.push(base / life);
+    return out;
   }
-
   if (method === 'SYD') {
-    const sumDigits = (life * (life + 1)) / 2;
-    for (let y = 1; y <= life; y++) {
-      const dep = (depreciable * (life - y + 1)) / sumDigits;
-      book -= dep;
-      rows.push(row(y, dep, book, salvage));
-    }
-    return rows;
+    const sum = (life * (life + 1)) / 2;
+    for (let i = 1; i <= life; i++) out.push((base * (life - i + 1)) / sum);
+    return out;
   }
-
-  if (method === 'DB') {
+  if (method === 'DB' || method === 'DBX') {
     const rate = factor / 100 / life;
-    for (let y = 1; y <= life; y++) {
+    let book = cost;
+    for (let i = 1; i <= life; i++) {
+      const remainingLife = life - i + 1;
       let dep = book * rate;
-      // Never depreciate below salvage.
-      if (book - dep < salvage) dep = book - salvage;
+      if (method === 'DBX') {
+        const slDep = (book - salvage) / remainingLife; // crossover candidate
+        if (slDep > dep) dep = slDep;
+      }
+      if (book - dep < salvage) dep = book - salvage; // never below salvage
       if (dep < 0) dep = 0;
+      out.push(dep);
       book -= dep;
-      rows.push(row(y, dep, book, salvage));
     }
-    return rows;
+    return out;
   }
-
   throw new Error(`Unknown depreciation method: ${method}`);
 }
 
-function row(year, depreciation, book, salvage) {
-  const rbv = book;
-  const rdv = Math.max(0, book - salvage);
-  return { year, depreciation, rbv, rdv };
+/**
+ * Full calendar-year schedule.
+ * @returns {{year:number, depreciation:number, rbv:number, rdv:number}[]}
+ */
+export function depreciate({ method, cost, salvage, life, factor = 200, m01 = 1 }) {
+  const amounts = lifeYearAmounts({ method, cost, salvage, life, factor });
+  const f1 = Math.min(1, Math.max(0, (13 - m01) / 12));
+
+  // Prorate life-year amounts across calendar years.
+  const calYears = f1 >= 1 ? life : life + 1;
+  const cal = new Array(calYears).fill(0);
+  for (let i = 0; i < amounts.length; i++) {
+    cal[i] += amounts[i] * f1;
+    if (i + 1 < calYears) cal[i + 1] += amounts[i] * (1 - f1);
+  }
+
+  const rows = [];
+  let book = cost;
+  for (let y = 1; y <= calYears; y++) {
+    const dep = cal[y - 1];
+    book -= dep;
+    rows.push({
+      year: y,
+      depreciation: dep,
+      rbv: book,
+      rdv: Math.max(0, book - salvage),
+    });
+  }
+  return rows;
+}
+
+/** DEP / RBV / RDV for a single calendar year (what the worksheet shows). */
+export function depreciationYear(args, year) {
+  const rows = depreciate(args);
+  const row = rows.find((r) => r.year === year);
+  return row ?? { year, depreciation: 0, rbv: args.cost, rdv: args.cost - args.salvage };
 }

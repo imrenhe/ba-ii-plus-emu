@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="description" content="A free, browser-based financial calculator for finance students — TVM, cash flow (NPV/IRR), amortization, bonds, depreciation and statistics.">
-  <meta name="theme-color" content="#1b1d2a">
+  <meta name="description" content="A free, browser-based financial calculator for finance students — TVM, cash flow, amortization, bonds, depreciation, statistics and more, all on a two-line prompt display.">
+  <meta name="theme-color" content="#14151f">
   <title>FinCalc — Financial Calculator</title>
   <link rel="stylesheet" href="css/styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%237c5cff'/><text x='50' y='68' font-size='58' text-anchor='middle' fill='white' font-family='sans-serif'>ƒ</text></svg>">
@@ -13,24 +13,40 @@
   <main class="app">
     <header class="app-head">
       <h1><span class="brand-mark">ƒ</span> FinCalc</h1>
-      <div class="app-tools">
-        <button type="button" id="help-btn" class="chip" aria-haspopup="dialog">Help</button>
-      </div>
+      <span class="app-sub">Financial Calculator</span>
     </header>
 
     <div class="calculator" role="application" aria-label="Financial calculator">
       <div id="display"></div>
-
-      <nav class="ws-tabs" aria-label="Worksheets">
-        <button type="button" class="chip" data-ws="cf">CF · NPV · IRR</button>
-        <button type="button" class="chip" data-ws="amort">Amort</button>
-        <button type="button" class="chip" data-ws="bond">Bond</button>
-        <button type="button" class="chip" data-ws="depr">Depr</button>
-        <button type="button" class="chip" data-ws="stat">Stats</button>
-      </nav>
-
       <div id="keypad"></div>
     </div>
+
+    <details class="guide">
+      <summary>How to use the worksheets</summary>
+      <div class="guide-body">
+        <p><strong>Everything happens on the two-line display</strong> — no pop-ups.
+          Open a worksheet, then step through its prompts:</p>
+        <ul>
+          <li><strong>Enter a value:</strong> type digits, press <kbd>ENTER</kbd>.</li>
+          <li><strong>Move between prompts:</strong> <kbd>↑</kbd> / <kbd>↓</kbd>.</li>
+          <li><strong>Compute the shown value:</strong> <kbd>CPT</kbd>.</li>
+          <li><strong>Change a setting</strong> (e.g. ACT/360, END/BGN, method): <kbd>2ND</kbd> <kbd>SET</kbd>.</li>
+          <li><strong>Exit a worksheet:</strong> <kbd>2ND</kbd> <kbd>QUIT</kbd>.</li>
+        </ul>
+        <p><strong>TVM:</strong> type a value then press <kbd>N</kbd>, <kbd>I/Y</kbd>,
+          <kbd>PV</kbd>, <kbd>PMT</kbd> or <kbd>FV</kbd> to store; <kbd>CPT</kbd> then a
+          key to solve. Money out is negative. Default P/Y = C/Y = 1.</p>
+        <p><strong>2ND:</strong> press <kbd>2ND</kbd> then a key for the small label above it —
+          e.g. cash-flow keys, <kbd>2ND</kbd> <kbd>BOND</kbd> (over 9), <kbd>2ND</kbd>
+          <kbd>DEPR</kbd> (over 4), <kbd>2ND</kbd> <kbd>P/Y</kbd> (over I/Y),
+          <kbd>2ND</kbd> <kbd>FORMAT</kbd> (over .) to set decimals.</p>
+        <p><strong>Dates</strong> are entered as MM.DDYYYY (e.g. <kbd>12.312024</kbd> → 12-31-2024).</p>
+        <p><strong>Keyboard:</strong> digits, <kbd>+ - * / =</kbd>, <kbd>Enter</kbd>,
+          <kbd>↑</kbd>/<kbd>↓</kbd>, <kbd>Backspace</kbd> (→), <kbd>Esc</kbd> (clear),
+          <kbd>c</kbd> (CPT), <kbd>Shift</kbd> (2ND), <kbd>q</kbd> (quit worksheet),
+          <kbd>n</kbd> (±).</p>
+      </div>
+    </details>
 
     <footer class="app-foot">
       <p>An independent educational tool for finance students. Not affiliated
@@ -38,43 +54,6 @@
     </footer>
   </main>
 
-  <dialog id="help-dialog" class="help">
-    <h2>Quick guide</h2>
-    <button class="help-close" aria-label="Close" autofocus>✕</button>
-    <ul>
-      <li><strong>Arithmetic:</strong> type numbers and use + − × ÷ = like any calculator.</li>
-      <li><strong>TVM:</strong> enter a value then press <kbd>N</kbd>, <kbd>I/Y</kbd>,
-        <kbd>PV</kbd>, <kbd>PMT</kbd> or <kbd>FV</kbd> to store it. Press
-        <kbd>CPT</kbd> then a TVM key to solve for it.</li>
-      <li><strong>Sign convention:</strong> money out is negative, money in is positive
-        (e.g. a loan received is +PV, payments are −PMT).</li>
-      <li><strong>2ND:</strong> press <kbd>2ND</kbd> then a key for the small label above it —
-        e.g. 2ND · <kbd>PMT</kbd> toggles BGN/END, 2ND · <kbd>I/Y</kbd> sets P/Y &amp; C/Y,
-        2ND · <kbd>.</kbd> sets decimal places, 2ND · <kbd>FV</kbd> clears the TVM registers.</li>
-      <li><strong>Worksheets:</strong> use the tabs above the keypad (or the CF/NPV/IRR keys and
-        2ND · PV / 9 / 6 / 8) for Cash Flow, Amortization, Bond, Depreciation and Statistics.</li>
-      <li><strong>Keyboard:</strong> digits, <kbd>+ - * / = .</kbd>, <kbd>Enter</kbd>,
-        <kbd>Backspace</kbd>, <kbd>Esc</kbd> (clear/close), <kbd>c</kbd> (CPT),
-        <kbd>Shift</kbd> (2ND), <kbd>n</kbd> (±).</li>
-    </ul>
-  </dialog>
-
   <script type="module" src="src/main.js"></script>
-  <script type="module">
-    import { openCashFlow, openAmort, openBond, openDepreciation, openStatistics } from './src/worksheets.js';
-    const map = {
-      cf: () => openCashFlow(),
-      amort: () => openAmort(window.__calc),
-      bond: () => openBond(),
-      depr: () => openDepreciation(),
-      stat: () => openStatistics(),
-    };
-    document.querySelectorAll('.ws-tabs .chip').forEach((b) =>
-      b.addEventListener('click', () => map[b.dataset.ws]?.()));
-    const dlg = document.getElementById('help-dialog');
-    document.getElementById('help-btn').addEventListener('click', () => dlg.showModal());
-    dlg.querySelector('.help-close').addEventListener('click', () => dlg.close());
-    dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
-  </script>
 </body>
 </html>

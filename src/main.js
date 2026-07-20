@@ -1,135 +1,127 @@
-// main.js — bootstrap: build the UI, wire key presses through the controller,
-// route 2ND-functions to worksheets/settings, and support keyboard input.
+// main.js — bootstrap and key dispatch. Builds the UI, routes each key press
+// through the controller, handles the 2ND-function layer and worksheet
+// navigation, and mirrors physical-keyboard input onto the keypad.
 
 import { Calculator } from './state.js';
 import { createDisplay } from './display.js';
 import { renderKeypad, keyEventToCode } from './keypad.js';
-import {
-  openCashFlow, openAmort, openBond, openDepreciation, openStatistics, closeOverlay,
-} from './worksheets.js';
 
 const calc = new Calculator();
-
 createDisplay(document.getElementById('display'), calc);
 renderKeypad(document.getElementById('keypad'), handlePress);
 
-// Simple prompt-based setting entry (P/Y, C/Y, decimals) keeps the keypad clean
-// while remaining faithful to the worksheet the 2ND-function opens.
-function promptNumber(message, current) {
-  const raw = window.prompt(message, String(current));
-  if (raw === null) return null;
-  const v = parseFloat(raw);
-  return Number.isNaN(v) ? null : v;
+function handlePress(code) {
+  if (calc.second) {
+    calc.clearSecond();
+    if (routeSecond(code)) return; // consumed by a 2ND-function
+  }
+  routePrimary(code);
 }
 
-function handlePress(code) {
-  const second = calc.second;
-
-  // 2ND-function routing first — these consume the 2ND prefix.
-  if (second) {
-    calc.clearSecond();
-    if (routeSecond(code)) return;
-    // fall through if the key has no 2ND-function
-  }
-
+// ── 2ND-function layer (the small labels printed above each key) ─────────────
+function routeSecond(code) {
   switch (code) {
-    // control
+    case 'cpt': calc.quitWorksheet(); return true;                 // QUIT
+    case 'enter': calc.wsSet(); return true;                       // SET
+    case 'up': calc.wsDelete(); return true;                       // DEL
+    case 'down': calc.wsNext(); return true;                       // INS (no-op insert → advance)
+    case 'onc': calc.clearWork(); return true;                     // CLR WORK
+
+    case 'N': calc.commitEntry(); calc.tvm.N = calc.currentValue() * calc.py; // xP/Y
+      calc.x = calc.tvm.N; calc.entryStr = null; calc.label = 'N'; calc.emit(); return true;
+    case 'IY': calc.openWorksheet('PY'); return true;              // P/Y
+    case 'PV': calc.openWorksheet('AMORT'); return true;           // AMORT
+    case 'PMT': calc.openWorksheet('BGN'); return true;            // BGN
+    case 'FV': calc.clearTVM(); return true;                       // CLR TVM
+
+    case 'pct': return true;                                       // K (constant) — reserved
+    case 'div': calc.random(); return true;                        // RAND
+    case 'INV': calc.toggleHyp(); return true;                     // HYP
+    case 'lparen': calc.trigFn('sin'); return true;                // SIN
+    case 'rparen': calc.trigFn('cos'); return true;                // COS
+    case 'pow': calc.trigFn('tan'); return true;                   // TAN
+    case 'mul': calc.unary('fact'); return true;                   // x!
+    case 'ln': calc.unary('exp'); return true;                     // eˣ
+    case '7': calc.openWorksheet('DATA'); return true;             // DATA
+    case '8': calc.openWorksheet('STAT'); return true;             // STAT
+    case '9': calc.openWorksheet('BOND'); return true;             // BOND
+    case 'sub': calc.setOperator('nPr'); return true;              // nPr
+    case 'sto': calc.unary('round'); return true;                  // ROUND
+    case '4': calc.openWorksheet('DEPR'); return true;             // DEPR
+    case '5': calc.openWorksheet('DELTA'); return true;            // Δ%
+    case '6': calc.openWorksheet('BRKEVN'); return true;           // BRKEVN
+    case 'add': calc.setOperator('nCr'); return true;              // nCr
+    case '1': calc.openWorksheet('DATE'); return true;             // DATE
+    case '2': calc.openWorksheet('ICONV'); return true;            // ICONV
+    case '3': calc.openWorksheet('PROFIT'); return true;           // PROFIT
+    case 'eq': calc.recallAnswer(); return true;                   // ANS
+    case '0': calc.openWorksheet('MEM'); return true;              // MEM
+    case 'dot': calc.openWorksheet('FORMAT'); return true;         // FORMAT
+    case 'neg': calc.reset(); return true;                         // RESET
+    default: return false;
+  }
+}
+
+// ── primary key layer ────────────────────────────────────────────────────────
+function routePrimary(code) {
+  switch (code) {
     case '2nd': calc.toggleSecond(); return;
     case 'cpt': calc.compute(); return;
+    case 'enter': calc.equals(); return;         // in a worksheet, equals() stores
+    case 'up': calc.ws ? calc.wsPrev() : null; return;
+    case 'down': calc.ws ? calc.wsNext() : null; return;
+    case 'onoff': calc.clearEntry(); return;
+    case 'right': calc.backspace(); return;
     case 'onc': calc.clearEntry(); return;
-    case 'up': case 'down': return; // reserved for worksheet navigation
 
-    // TVM
+    case 'CF': calc.openWorksheet('CF'); return;
+    case 'NPV': calc.openWorksheet('NPV'); return;
+    case 'IRR': calc.openWorksheet('IRR'); return;
+
     case 'N': calc.tvmKey('N'); return;
     case 'IY': calc.tvmKey('IY'); return;
     case 'PV': calc.tvmKey('PV'); return;
     case 'PMT': calc.tvmKey('PMT'); return;
     case 'FV': calc.tvmKey('FV'); return;
 
-    // worksheets
-    case 'CF': case 'NPV': case 'IRR': openCashFlow(); return;
-    case 'enter': return;
-    case 'del': calc.backspace(); return;
-
-    // memory
-    case 'sto': calc.arm('store'); return;
-    case 'rcl': calc.arm('recall'); return;
-
-    // operators / functions
-    case 'div': calc.setOperator('/'); return;
-    case 'mul': calc.setOperator('*'); return;
-    case 'sub': calc.setOperator('-'); return;
-    case 'add': calc.setOperator('+'); return;
-    case 'eq': calc.equals(); return;
     case 'pct': calc.percent(); return;
     case 'sqrt': calc.unary('sqrt'); return;
+    case 'square': calc.unary('square'); return;
     case 'inv': calc.unary('inv'); return;
+    case 'div': calc.setOperator('/'); return;
+
+    case 'INV': calc.toggleInverse(); return;
+    case 'lparen': return; // parentheses not modeled in the simple entry engine
+    case 'rparen': return;
+    case 'pow': calc.setOperator('^pow'); return;
+    case 'mul': calc.setOperator('*'); return;
+
     case 'ln': calc.unary('ln'); return;
-    case 'pow': calc.setOperator('^pow'); return; // handled below via custom op
+    case 'sub': calc.setOperator('-'); return;
+    case 'sto': calc.arm('store'); return;
+    case 'add': calc.setOperator('+'); return;
+    case 'rcl': calc.arm('recall'); return;
+    case 'eq': calc.equals(); return;
     case 'neg': calc.negate(); return;
-    case 'bksp': calc.backspace(); return;
 
-    // digits + dot
-    case 'dot': calc.inputDigit('.'); return;
+    case 'dot': digitOrMemory('.'); return;
     default:
-      if (code >= '0' && code <= '9') {
-        // STO/RCL capture digits when armed.
-        if (calc.storeArmed || calc.recallArmed) {
-          calc.memoryDigit(Number(code));
-        } else {
-          calc.inputDigit(code);
-        }
-      }
+      if (code >= '0' && code <= '9') digitOrMemory(code);
   }
 }
 
-// Returns true if the 2ND-function was handled.
-function routeSecond(code) {
-  switch (code) {
-    case 'PV': openAmort(calc); return true;             // AMORT
-    case '9': openBond(); return true;                    // BOND
-    case '6': openDepreciation(); return true;            // DEPR
-    case '8': openStatistics(); return true;              // STAT
-    case '7': openStatistics(); return true;              // DATA → stats entry
-    case 'PMT': calc.toggleBegin(); return true;          // BGN/END
-    case 'FV': calc.clearTVM(); return true;              // CLR TVM
-    case 'IY': {                                          // P/Y (and C/Y)
-      const py = promptNumber('Payments per year (P/Y):', calc.py);
-      if (py !== null) calc.setPY(py);
-      const cy = promptNumber('Compoundings per year (C/Y):', calc.cy);
-      if (cy !== null) calc.setCY(cy);
-      return true;
-    }
-    case 'N': {                                           // xP/Y → N = years × P/Y
-      calc.commitEntry();
-      calc.tvm.N = calc.currentValue() * calc.py;
-      calc.x = calc.tvm.N;
-      calc.label = 'N';
-      calc.emit();
-      return true;
-    }
-    case 'dot': {                                         // FORMAT (decimals)
-      const dp = promptNumber('Decimal places (0–9):', calc.decimals);
-      if (dp !== null) calc.setDecimals(dp);
-      return true;
-    }
-    case 'sqrt': calc.unary('square'); return true;       // x²
-    case 'ln': calc.unary('exp'); return true;            // eˣ
-    case 'onc': calc.reset(); return true;                // RESET
-    default: return false;
+function digitOrMemory(ch) {
+  if ((calc.storeArmed || calc.recallArmed) && ch >= '0' && ch <= '9') {
+    calc.memoryDigit(Number(ch));
+  } else {
+    calc.inputDigit(ch);
   }
 }
 
-// yˣ needs a second operand, so implement it as a pending binary op.
-const origApplyOp = calc.applyOp.bind(calc);
-calc.applyOp = (a, b, op) => (op === '^pow' ? Math.pow(a, b) : origApplyOp(a, b, op));
-
-// ── keyboard support ──────────────────────────────────────────────────────
+// ── physical keyboard ────────────────────────────────────────────────────────
 window.addEventListener('keydown', (e) => {
-  if (e.target.matches('input, textarea, select')) return; // let worksheet fields type
-  if (e.key === 'Escape') {
-    closeOverlay();
-  }
+  if (e.target.matches('input, textarea, select')) return;
+  if (e.key === 'q') { calc.quitWorksheet(); return; }
   const code = keyEventToCode(e);
   if (code) {
     e.preventDefault();
@@ -140,11 +132,7 @@ window.addEventListener('keydown', (e) => {
 
 function flashKey(code) {
   const btn = document.querySelector(`.key[data-code="${code}"]`);
-  if (btn) {
-    btn.classList.add('pressed');
-    setTimeout(() => btn.classList.remove('pressed'), 90);
-  }
+  if (btn) { btn.classList.add('pressed'); setTimeout(() => btn.classList.remove('pressed'), 90); }
 }
 
-// Expose for quick manual debugging in the console.
 window.__calc = calc;

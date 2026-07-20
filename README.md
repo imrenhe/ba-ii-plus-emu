@@ -1,155 +1,162 @@
 # FinCalc — a web-based financial calculator
 
 **FinCalc** is a free, browser-based financial calculator for finance students.
-It reproduces the *functional* workflow of a classic two-line financial
-calculator — Time Value of Money, cash-flow analysis, amortization, bonds,
-depreciation and statistics — so students trained on a physical device can
-navigate it intuitively, on both desktop and mobile.
+It reproduces the *functional* workflow and key layout of a classic two-line
+financial calculator — so students trained on the physical device navigate it
+intuitively — with every worksheet driven entirely on the two-line display
+(no pop-ups or separate data-entry screens), on both desktop and mobile.
 
 It runs entirely in the browser: **no backend, no accounts, no network calls.**
 All math is computed client-side and the whole thing deploys as static files.
 
-> **Not affiliated with Texas Instruments.** This is an independent educational
-> tool. It is not affiliated with, authorized, endorsed by, or sponsored by
-> Texas Instruments. "BA II Plus" and "Texas Instruments" are trademarks of
-> their respective owner, used here only nominatively to describe compatibility.
-> The visual design, color scheme and name are original.
+> **Independent educational tool.** Not affiliated with, authorized, endorsed by,
+> or sponsored by Texas Instruments or any calculator manufacturer. The visual
+> design, color scheme and name are original; only the *functional* key layout is
+> reproduced, for learning compatibility. No manufacturer logo, trade dress, or
+> product name appears in the app.
 
 ---
 
 ## Features
 
-- **Two-line LCD display** — active variable label on top, value below, with
-  `2ND` / `BGN` / `CPT` indicator flags.
-- **Time Value of Money** — `N`, `I/Y`, `PV`, `PMT`, `FV`, `CPT`, with
-  `P/Y`/`C/Y` (payments & compoundings per year) and BEGIN/END (annuity-due)
-  modes.
-- **Cash Flow · NPV · IRR** — grouped/repeated cash flows, plus NFV and payback.
-- **Amortization** — per-payment schedule and P1–P2 range summaries.
-- **Bond** — price ↔ yield on a coupon date, per 100 face value.
-- **Depreciation** — straight-line (SL), sum-of-years'-digits (SYD) and
-  declining-balance (DB/DDB).
-- **Statistics** — one-variable mean, sample & population standard deviation,
-  ΣX, ΣX², with optional frequency weights.
-- **Standard calculator** — arithmetic, `+/−`, `%`, `√`, `x²`, `1/x`, `yˣ`,
-  `LN`, `eˣ`, and `STO`/`RCL` memory registers 0–9.
-- **Responsive & touch-friendly** — mobile-first layout, large tap targets,
-  full physical-keyboard support on desktop.
+Every worksheet is **prompt-driven on the LCD**, exactly like the reference
+device: open it, step through its labelled fields with `↑`/`↓`, type values and
+press `ENTER`, press `CPT` to compute, and `2ND SET` to change a setting.
 
-## Usage
+- **Standard calculator** — arithmetic, `%`, `+/−`, `√x`, `x²`, `1/x`, `yˣ`,
+  `LN`, `eˣ`; full scientific keys: `SIN`/`COS`/`TAN` with `INV` and `HYP`
+  modifiers, `x!`, `nPr`, `nCr`, `RAND`; `STO`/`RCL` memory registers 0–9.
+- **Time Value of Money** — `N`, `I/Y`, `PV`, `PMT`, `FV`, `CPT`, with `P/Y`/`C/Y`
+  and BEGIN/END (annuity-due) modes.
+- **Cash Flow / NPV / IRR** — grouped (repeated-frequency) cash flows; NPV, NFV,
+  IRR.
+- **Amortization** — interest, principal and balance over any P1–P2 range, from
+  the live TVM registers.
+- **Bond** — full date handling: settlement/redemption dates, ACT or 30/360
+  day-count, coupon frequency, price ↔ yield, and accrued interest.
+- **Depreciation** — SL, SYD, DB, DBX (declining balance with crossover to
+  straight line) and SLF, with a partial first year (month placed in service).
+- **Statistics** — one-variable stats and two-variable regression (LIN, Ln, EXP,
+  PWR) with `n`, means, sample/population std dev, sums, `a`/`b`/`r`, and Y′
+  prediction.
+- **Interest conversion (ICONV)** — nominal ↔ effective rate.
+- **Breakeven (BRKEVN)** — solve any of FC, VC, P, Q, PFT.
+- **Profit margin (PROFIT)** — solve any of cost, selling price, margin %.
+- **Percent change (Δ%)** — OLD, NEW, %CH, #PD (compound growth).
+- **Date (DATE)** — days between two dates, or a date plus a day count.
+- **Settings** — decimal places and angle mode (FORMAT), P/Y & C/Y, BGN/END,
+  memory (MEM), and full RESET — all on-screen worksheets.
+- **Responsive & touch-friendly** — mobile-first, large tap targets, full
+  physical-keyboard support on desktop.
 
-### Arithmetic
-Type numbers and use `+ − × ÷ =` like any calculator. `%` converts the entry to
-a decimal (or a percentage of the pending operand).
+## How to use it
 
-### Time Value of Money
-Enter a value, then press the register key to store it:
+### Standard math & TVM
+Type numbers and use `+ − × ÷ =`. For TVM, enter a value then press `N`, `I/Y`,
+`PV`, `PMT` or `FV` to store it; press `CPT` then a key to solve for it. Money
+out is negative, money in positive. The default `P/Y` and `C/Y` are **1**, so
+`N` and `I/Y` are per-period; for monthly problems either set `P/Y = 12` (via
+`2ND` `P/Y`) or convert yourself (`N × 12`, `I/Y ÷ 12`).
 
 ```
-Example — 30-year mortgage payment on $100,000 at 6%/yr, monthly
-  Keep P/Y = 1 and C/Y = 1, and enter the periodic values directly:
-  360     N       (30 years × 12 payments = 360 periods)
-  0.5     I/Y     (6% per year ÷ 12 = 0.5% per period)
+Mortgage payment — $100,000 at 6%/yr, 30 years, monthly (P/Y = C/Y = 1):
+  360  N            (30 × 12 periods)
+  0.5  I/Y          (6 ÷ 12 per period)
   100000  PV
-  0       FV
-  CPT     PMT     →   -599.55
+  0    FV
+  CPT  PMT   →   -599.55
 ```
 
-The default `P/Y` and `C/Y` are **1**, so `N` and `I/Y` are always the number of
-periods and the rate *per period*. For non-annual compounding, convert them
-yourself — scale `N` by the number of periods per year and divide `I/Y` by that
-same number (e.g. monthly → `N × 12`, `I/Y ÷ 12`; semiannual → `N × 2`,
-`I/Y ÷ 2`). This keeps every problem on one consistent per-period basis.
+### Worksheets (all on the LCD)
+Press a worksheet key (or `2ND` + the gold label above a key), then:
 
-**Sign convention** (same as the physical device): money *out* is negative,
-money *in* is positive. A loan you receive is `+PV`; the payments you make are
-`−PMT`.
+| Action | Keys |
+|---|---|
+| Enter a value into the shown field | type digits, `ENTER` |
+| Move between fields | `↑` / `↓` |
+| Compute the shown field | `CPT` |
+| Change a setting (ACT/360, END/BGN, method, model) | `2ND` `SET` |
+| Clear the worksheet's data | `2ND` `CLR WORK` |
+| Leave the worksheet | `2ND` `QUIT` |
 
-### 2ND functions
-Press `2ND`, then a key, to use the small label printed above it — for example:
+**Opening worksheets:** `CF`, `NPV`, `IRR` are direct keys. The rest are 2ND
+functions (press `2ND`, then the key under the gold label):
 
-| Keys           | Action                          |
-|----------------|---------------------------------|
-| `2ND` `I/Y`    | Set P/Y and C/Y                 |
-| `2ND` `PMT`    | Toggle BEGIN / END mode         |
-| `2ND` `FV`     | Clear the TVM registers         |
-| `2ND` `N`      | `xP/Y` — multiply entry by P/Y  |
-| `2ND` `.`      | Set decimal places (0–9)        |
-| `2ND` `PV`     | Amortization worksheet          |
-| `2ND` `9`      | Bond worksheet                  |
-| `2ND` `6`      | Depreciation worksheet          |
-| `2ND` `8`      | Statistics worksheet            |
+| Worksheet | Keys | Worksheet | Keys |
+|---|---|---|---|
+| Amortization | `2ND` `AMORT` (PV) | Depreciation | `2ND` `DEPR` (4) |
+| Bond | `2ND` `BOND` (9) | Statistics data | `2ND` `DATA` (7) |
+| Statistics results | `2ND` `STAT` (8) | Interest conv. | `2ND` `ICONV` (2) |
+| Breakeven | `2ND` `BRKEVN` (6) | Profit margin | `2ND` `PROFIT` (3) |
+| Percent change | `2ND` `Δ%` (5) | Date | `2ND` `DATE` (1) |
+| P/Y & C/Y | `2ND` `P/Y` (I/Y) | Decimals & angle | `2ND` `FORMAT` (.) |
+| BGN/END | `2ND` `BGN` (PMT) | Memory | `2ND` `MEM` (0) |
 
-Worksheets are also reachable from the labelled tabs above the keypad.
+**Dates** are entered as `MM.DDYYYY` — e.g. `12.312024` `ENTER` → `12-31-2024`.
 
 ### Keyboard shortcuts (desktop)
-Digits, `+ - * / = .`, `Enter` (=), `Backspace` (⌫), `Esc` (clear / close
-overlay), `c` (CPT), `Shift` (2ND), `n` (±).
+Digits, `+ - * / = .`, `Enter`, `↑`/`↓`, `Backspace` (→), `Esc` (clear),
+`c` (CPT), `Shift` (2ND), `q` (quit worksheet), `n` (±).
 
 ## Running locally
 
 No build step. Serve the folder with any static file server:
 
 ```bash
-# Python (built in)
-python3 -m http.server 8000
-# then open http://localhost:8000
-
-# or npm
-npm run serve
+python3 -m http.server 8000   # then open http://localhost:8000
+# or: npm run serve
 ```
 
-Opening `index.html` directly via `file://` will **not** work because the app
-uses native ES modules, which browsers only load over `http(s)://`.
+Opening `index.html` via `file://` will **not** work — native ES modules require
+`http(s)://`.
 
 ## Tests
 
-Known-answer tests for the math engine (TVM, NPV/IRR, amortization, bonds,
-depreciation, statistics) plus the calculator controller run on Node's built-in
-test runner — no dependencies to install:
+Known-answer tests for the whole math engine plus the worksheet/controller flows
+run on Node's built-in test runner — no dependencies to install:
 
 ```bash
 npm test          # or: node --test
 ```
 
-Each test file (`tests/*.test.js`) checks classic textbook problems against the
-pure functions in `src/engine/`.
+Coverage includes TVM, NPV/IRR, amortization, dated bonds & accrued interest,
+depreciation (incl. partial-year and DBX crossover), interest conversion,
+breakeven, profit, percent change, one- and two-variable statistics, scientific
+functions, and end-to-end worksheet navigation (`tests/worksheet-flow.test.js`).
 
 ## Deploying to GitHub Pages
 
-The repository is already static — just serve it:
-
-1. Push to GitHub.
-2. **Settings → Pages → Build and deployment → Deploy from a branch.**
-3. Choose your branch and the `/ (root)` folder, then save.
-4. The app will be live at `https://<user>.github.io/<repo>/`.
+The repository is already static — **Settings → Pages → Deploy from a branch →
+`main` / `/ (root)`**. It goes live at `https://<user>.github.io/<repo>/`.
 
 ## Project structure
 
 ```
-index.html            Single-page shell + help dialog
-css/styles.css        Responsive, mobile-first styling (original design)
+index.html            Single-page shell (calculator + inline guide)
+css/styles.css         Responsive styling; exact key matrix, original colors
 src/
-  engine/             Pure math — no DOM, independently unit-testable
-    tvm.js            TVM solver + I/Y <-> per-period rate conversion
-    cashflow.js       NPV, IRR, NFV, payback
-    amort.js          Amortization schedule & range totals
-    bond.js           Bond price / yield
-    depreciation.js   SL / SYD / DB schedules
-    statistics.js     One-variable statistics
-    util.js           Root-finding + rounding helpers
-  format.js           LCD number formatting / parsing
-  state.js            Calculator controller (registers, modes, key logic)
-  display.js          Two-line LCD renderer
-  keypad.js           Key matrix + keyboard mapping
-  worksheets.js       Worksheet overlay panels
-  main.js             Bootstrap + event wiring
-tests/                node --test known-answer test suites
+  engine/              Pure math — no DOM, independently unit-testable
+    tvm.js             TVM solver + rate conversion
+    cashflow.js        NPV, IRR, NFV, payback
+    amort.js           Amortization schedule & range totals
+    bond.js            Bond price / yield / accrued interest (with dates)
+    depreciation.js    SL / SYD / DB / DBX / SLF, partial-year
+    dates.js           Device date parse/format, ACT & 30/360 day counts
+    worksheet-math.js  Interest conversion, breakeven, profit, percent change
+    statistics.js      One- and two-variable statistics & regression
+    sci.js             Trig/hyperbolic/inverse, factorial, nPr/nCr
+    util.js            Root-finding + rounding helpers
+  format.js            LCD number formatting / parsing
+  worksheets.js        Field definitions for every worksheet (prompt lists)
+  state.js             Controller: STD mode + prompt-driven worksheet engine
+  display.js           Two-line LCD renderer (label = value + indicators)
+  keypad.js            Exact key matrix + keyboard mapping
+  main.js              Bootstrap, 2ND routing, worksheet navigation
+tests/                 node --test known-answer & flow suites
 ```
 
 The **math engine is fully decoupled from the UI** — every function in
-`src/engine/` is pure and imported directly by the tests, so calculations can be
-verified independently of the DOM.
+`src/engine/` is pure and imported directly by the tests.
 
 ## License
 
