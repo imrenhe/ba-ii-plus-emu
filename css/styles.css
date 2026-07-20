@@ -45,6 +45,7 @@ html, body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh; /* fill the visible viewport on mobile (excludes browser chrome) */
 }
 
 .app-head {
@@ -72,7 +73,12 @@ html, body {
   border-radius: 20px;
   padding: clamp(10px, 3vw, 16px);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  flex: 1 1 auto;          /* grow to fill the screen on mobile */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
+#keypad { flex: 1 1 auto; display: flex; min-height: 0; }
 
 /* LCD ----------------------------------------------------------------------- */
 .lcd {
@@ -128,8 +134,10 @@ html, body {
 .keypad {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-rows: 1fr;      /* rows share the keypad height equally → keys fill it */
   gap: var(--gap);
   margin-top: 12px;
+  flex: 1 1 auto;
 }
 .key {
   position: relative;
@@ -193,7 +201,6 @@ html, body {
 
 /* Footer -------------------------------------------------------------------- */
 .app-foot {
-  margin-top: auto;
   padding: 14px 6px 6px;
   color: var(--muted);
   font-size: 0.66rem;
@@ -202,7 +209,11 @@ html, body {
 }
 
 @media (min-width: 560px) {
-  .app { max-width: 440px; padding-top: 22px; }
+  /* On desktop, don't stretch the keys to fill a tall window — use natural
+     height and center the calculator vertically. */
+  .app { max-width: 440px; padding-top: 22px; justify-content: center; }
+  .calculator { flex: 0 0 auto; }
+  .keypad { grid-auto-rows: minmax(52px, auto); }
 }
 @media (hover: none) {
   .key:hover { filter: none; }
