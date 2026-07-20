@@ -41,13 +41,14 @@ export class Calculator {
 
     this.label = '';
     this.error = false;
+    this.errorCode = 0; // BA II-style error number (see raiseError)
 
     this.mem = Array(10).fill(0);
     this.tvm = { N: 0, IY: 0, PV: 0, PMT: 0, FV: 0 };
     this.py = 1;
     this.cy = 1;
     this.begin = false;
-    this.decimals = 2;
+    this.decimals = 4;
     this.angleMode = DEG;
 
     this.data = defaultData();
@@ -64,7 +65,7 @@ export class Calculator {
 
   // ── display ──────────────────────────────────────────────────────────────
   getDisplay() {
-    if (this.error) return { label: this.ws ? this.ws.title : '', value: 'Error', flags: this.flags() };
+    if (this.error) return { label: '', value: this.errorString(), flags: this.flags() };
     if (this.ws) {
       const field = this.currentField();
       const value = this.entryStr !== null ? this.entryStr : this.fieldDisplay(field);
@@ -185,6 +186,10 @@ export class Calculator {
     } else if (this.lastOp !== null && this.lastOperand !== null) {
       this.x = this.applyOp(this.x, this.lastOperand, this.lastOp); // repeated "="
     }
+    if (!this.error) {
+      if (Number.isNaN(this.x)) this.raiseError(2);        // e.g. invalid nPr/nCr
+      else if (!isFinite(this.x)) this.raiseError(1);      // overflow
+    }
     this.lastAnswer = this.x;
     this.entryStr = null;
     this.emit();
@@ -195,7 +200,7 @@ export class Calculator {
       case '+': return a + b;
       case '-': return a - b;
       case '*': return a * b;
-      case '/': if (b === 0) { this.raiseError(); return 0; } return a / b;
+      case '/': if (b === 0) { this.raiseError(1); return 0; } return a / b;
       case '^pow': return Math.pow(a, b);
       case 'nPr': return nPr(a, b);
       case 'nCr': return nCr(a, b);
@@ -227,7 +232,9 @@ export class Calculator {
       case 'round': r = Number(formatDisplay(v, this.decimals).replace(/,/g, '')); break;
       default: r = v;
     }
-    if (Number.isNaN(r)) this.raiseError(); else { this.x = r; this.lastAnswer = r; }
+    if (Number.isNaN(r)) this.raiseError(fn === 'inv' ? 1 : 2);
+    else if (!isFinite(r)) this.raiseError(1);
+    else { this.x = r; this.lastAnswer = r; }
     this.entryStr = null;
     this.emit();
   }
@@ -237,7 +244,9 @@ export class Calculator {
     this.commitEntry();
     const r = trig(fn, this.x, { mode: this.angleMode, inverse: this.inverse, hyp: this.hyp });
     this.inverse = false; this.hyp = false;
-    if (Number.isNaN(r) || !isFinite(r)) this.raiseError(); else { this.x = r; this.lastAnswer = r; }
+    if (Number.isNaN(r)) this.raiseError(2);
+    else if (!isFinite(r)) this.raiseError(1);
+    else { this.x = r; this.lastAnswer = r; }
     this.entryStr = null;
     this.emit();
   }
@@ -286,7 +295,8 @@ export class Calculator {
     const { N, IY, PV, PMT, FV } = this.tvm;
     const args = { n: N, iy: IY, pv: PV, pmt: PMT, fv: FV, py: this.py, cy: this.cy, begin: this.begin };
     const result = computeTVM(key === 'IY' ? 'IY' : key, args);
-    if (!isFinite(result) || Number.isNaN(result)) { this.raiseError(); return; }
+    // No real solution for the given signs of PV/PMT/FV → Error 5, as on the device.
+    if (!isFinite(result) || Number.isNaN(result)) { this.raiseError(5); return; }
     this.tvm[key] = result;
     this.x = result;
     this.lastAnswer = result;
@@ -349,7 +359,8 @@ export class Calculator {
     if (!field || !field.editable || this.entryStr === null) { this.emit(); return; }
     if (field.kind === 'date') {
       const parsed = parseDeviceDate(this.entryStr);
-      if (parsed) field.set(parsed);
+      if (!parsed) { this.raiseError(6); return; } // invalid date → Error 6
+      field.set(parsed);
     } else {
       field.set(parseEntry(this.entryStr));
     }
@@ -363,7 +374,11 @@ export class Calculator {
     if (!field || !field.computable) { this.emit(); return; }
     const r = field.compute();
     this.entryStr = null;
-    if (typeof r === 'number' && (Number.isNaN(r) || !isFinite(r))) this.raiseError();
+    if (typeof r === 'number' && (Number.isNaN(r) || !isFinite(r))) {
+      // IRR / bond-yield failures are iteration errors (7); others have no solution (5).
+      const iterative = this.ws.id === 'IRR' || (this.ws.id === 'BOND' && field.label === 'YLD');
+      this.raiseError(iterative ? 7 : 5);
+    }
     this.emit();
   }
 
@@ -402,8 +417,13 @@ export class Calculator {
   }
 
   // ── errors ────────────────────────────────────────────────────────────────
-  raiseError() { this.error = true; this.emit(); }
-  clearError() { if (this.error) this.error = false; }
+  // Error codes mirror the reference device:
+  //   1 Overflow / divide by zero      2 Invalid argument (domain error)
+  //   4 Value out of range             5 No solution exists (TVM)
+  //   6 Invalid date                   7 Iteration limit exceeded (IRR / yield)
+  raiseError(code = 0) { this.error = true; this.errorCode = code; this.emit(); }
+  clearError() { if (this.error) { this.error = false; this.errorCode = 0; } }
+  errorString() { return this.errorCode ? `Error ${this.errorCode}` : 'Error'; }
 }
 
 function labelFor(key) {

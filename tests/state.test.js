@@ -26,13 +26,32 @@ test('chained arithmetic: 2 + 3 × 4 evaluates left-to-right like the device', (
   assert.equal(c.x, 20);
 });
 
-test('divide by zero raises Error', () => {
+test('divide by zero raises Error 1 (overflow)', () => {
   const c = new Calculator();
   type(c, '5');
   c.setOperator('/');
   type(c, '0');
   c.equals();
-  assert.equal(c.getDisplay().value, 'Error');
+  assert.equal(c.getDisplay().value, 'Error 1');
+});
+
+test('TVM with no sign change raises Error 5 (no solution)', () => {
+  // PV=100, FV=200, I/Y=10, PMT=0 → compute N has no solution.
+  const c = new Calculator();
+  type(c, '100'); c.tvmKey('PV');
+  type(c, '200'); c.tvmKey('FV');
+  type(c, '10'); c.tvmKey('IY');
+  type(c, '0'); c.tvmKey('PMT');
+  c.compute(); c.tvmKey('N'); // CPT N
+  assert.equal(c.getDisplay().value, 'Error 5');
+  assert.equal(c.errorCode, 5);
+});
+
+test('domain error raises Error 2 (√ of a negative)', () => {
+  const c = new Calculator();
+  type(c, '4'); c.negate();
+  c.unary('sqrt');
+  assert.equal(c.getDisplay().value, 'Error 2');
 });
 
 test('memory: STO 1 then RCL 1 round-trips', () => {

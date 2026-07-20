@@ -72,7 +72,12 @@ function routePrimary(code) {
     case 'down': calc.ws ? calc.wsNext() : null; return;
     case 'onoff': calc.clearEntry(); return;
     case 'right': calc.backspace(); return;
-    case 'onc': calc.clearEntry(); return;
+    case 'onc':
+      // CE|C: in a worksheet, clear a pending entry, else exit to the standard
+      // calculator (like the device). In standard mode, clear as usual.
+      if (calc.ws && calc.entryStr === null && !calc.error) calc.quitWorksheet();
+      else calc.clearEntry();
+      return;
 
     case 'CF': calc.openWorksheet('CF'); return;
     case 'NPV': calc.openWorksheet('NPV'); return;

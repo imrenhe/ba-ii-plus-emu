@@ -191,34 +191,6 @@ html, body {
 .key-num:hover { background: var(--num-hi); }
 .key-clear { background: linear-gradient(180deg, var(--clear), #6a3140); color: #ffe9ee; }
 
-/* Guide (inline, collapsible — not a pop-up) --------------------------------- */
-.guide {
-  margin-top: 14px;
-  background: var(--body);
-  border: 1px solid var(--body-edge);
-  border-radius: 12px;
-  padding: 4px 14px;
-}
-.guide summary {
-  cursor: pointer;
-  padding: 10px 0;
-  font-weight: 600;
-  font-size: 0.88rem;
-  color: var(--teal);
-  list-style: none;
-}
-.guide summary::-webkit-details-marker { display: none; }
-.guide summary::before { content: "▸ "; }
-.guide[open] summary::before { content: "▾ "; }
-.guide-body { padding-bottom: 12px; color: var(--text); }
-.guide-body p { font-size: 0.82rem; line-height: 1.5; margin: 8px 0; color: var(--text); }
-.guide-body ul { margin: 8px 0; padding-left: 18px; }
-.guide-body li { font-size: 0.82rem; line-height: 1.5; margin-bottom: 5px; }
-.guide kbd {
-  background: var(--num); border: 1px solid var(--body-edge); border-bottom-width: 2px;
-  border-radius: 5px; padding: 1px 5px; font-family: ui-monospace, monospace; font-size: 0.82em;
-}
-
 /* Footer -------------------------------------------------------------------- */
 .app-foot {
   margin-top: auto;

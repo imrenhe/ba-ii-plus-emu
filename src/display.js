@@ -31,7 +31,7 @@ export function createDisplay(root, calc) {
     const d = calc.getDisplay();
     labelEl.textContent = d.label ? d.label + (isSetting(d) ? '' : ' =') : '';
     valueEl.textContent = d.value;
-    valueEl.classList.toggle('is-error', d.value === 'Error');
+    valueEl.classList.toggle('is-error', /^Error/.test(d.value));
     for (const el of flagEls) {
       const f = el.dataset.f;
       if (f === 'ws') { el.textContent = d.flags.worksheet || ''; el.classList.toggle('on', !!d.flags.worksheet); }
