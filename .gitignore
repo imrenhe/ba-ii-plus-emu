@@ -1,0 +1,17 @@
+# Dependencies (only appear if someone runs `npm install`; the app itself has none)
+node_modules/
+npm-debug.log*
+
+# macOS / Dropbox cruft
+.DS_Store
+.AppleDouble
+Icon?
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs & OS temp
+*.log
+Thumbs.db

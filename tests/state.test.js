@@ -1,0 +1,84 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { Calculator } from '../src/state.js';
+
+const type = (calc, s) => {
+  for (const ch of String(s)) calc.inputDigit(ch);
+};
+
+test('basic arithmetic: 12 + 8 = 20', () => {
+  const c = new Calculator();
+  type(c, '12');
+  c.setOperator('+');
+  type(c, '8');
+  c.equals();
+  assert.equal(c.x, 20);
+});
+
+test('chained arithmetic: 2 + 3 × 4 evaluates left-to-right like the device', () => {
+  const c = new Calculator();
+  type(c, '2');
+  c.setOperator('+');
+  type(c, '3');
+  c.setOperator('*'); // computes 2+3=5 first
+  type(c, '4');
+  c.equals();
+  assert.equal(c.x, 20);
+});
+
+test('divide by zero raises Error', () => {
+  const c = new Calculator();
+  type(c, '5');
+  c.setOperator('/');
+  type(c, '0');
+  c.equals();
+  assert.equal(c.getDisplay().value, 'Error');
+});
+
+test('memory: STO 1 then RCL 1 round-trips', () => {
+  const c = new Calculator();
+  type(c, '42');
+  c.arm('store');
+  c.memoryDigit(1);
+  c.clearEntry();
+  c.clearEntry();
+  c.arm('recall');
+  c.memoryDigit(1);
+  assert.equal(c.x, 42);
+});
+
+test('TVM key flow: enter N/I/Y/PV/PMT then CPT FV', () => {
+  const c = new Calculator();
+  c.setPY(1);
+  c.setCY(1);
+  type(c, '10');
+  c.tvmKey('N');
+  type(c, '5');
+  c.tvmKey('IY');
+  type(c, '1000');
+  c.negate();
+  c.tvmKey('PV');
+  c.tvmKey('PMT'); // PMT = 0 (display currently -1000? re-enter)
+  type(c, '0');
+  c.tvmKey('PMT');
+  c.compute();
+  c.tvmKey('FV');
+  assert.ok(Math.abs(c.x - 1628.89) < 0.01, `FV was ${c.x}`);
+  assert.equal(c.getDisplay().label, 'FV');
+});
+
+test('negate toggles sign of the entry', () => {
+  const c = new Calculator();
+  type(c, '100');
+  c.negate();
+  assert.equal(c.currentValue(), -100);
+  c.negate();
+  assert.equal(c.currentValue(), 100);
+});
+
+test('percent converts a plain entry to its decimal form', () => {
+  const c = new Calculator();
+  type(c, '50');
+  c.percent();
+  assert.equal(c.x, 0.5);
+});
