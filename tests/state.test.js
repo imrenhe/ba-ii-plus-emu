@@ -86,6 +86,25 @@ test('TVM key flow: enter N/I/Y/PV/PMT then CPT FV', () => {
   assert.equal(c.getDisplay().label, 'FV');
 });
 
+test('ON/OFF: single press sleeps, wake() restores', () => {
+  const c = new Calculator();
+  assert.equal(c.powerOff, false);
+  c.powerButton();
+  assert.equal(c.powerOff, true);
+  assert.equal(c.wake(), true);   // consumed the wake press
+  assert.equal(c.powerOff, false);
+  assert.equal(c.wake(), false);  // nothing to wake
+});
+
+test('ON/OFF easter egg: 7 rapid presses cycle the LCD theme', () => {
+  const c = new Calculator();
+  assert.equal(c.lcdTheme, 'green');
+  for (let i = 0; i < 7; i++) c.powerButton(); // fast, within the 600ms window
+  assert.equal(c.themeIndex, 1);
+  assert.equal(c.lcdTheme, 'amber');
+  assert.equal(c.powerOff, false); // forced on so the new theme is visible
+});
+
 test('negate toggles sign of the entry', () => {
   const c = new Calculator();
   type(c, '100');

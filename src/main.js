@@ -11,6 +11,12 @@ createDisplay(document.getElementById('display'), calc);
 renderKeypad(document.getElementById('keypad'), handlePress);
 
 function handlePress(code) {
+  // While "off", ON/OFF handles power; any other key just wakes the screen.
+  if (calc.powerOff) {
+    if (code === 'onoff') calc.powerButton();
+    else calc.wake();
+    return;
+  }
   if (calc.second) {
     calc.clearSecond();
     if (routeSecond(code)) return; // consumed by a 2ND-function
@@ -70,7 +76,7 @@ function routePrimary(code) {
     case 'enter': calc.equals(); return;         // in a worksheet, equals() stores
     case 'up': calc.ws ? calc.wsPrev() : null; return;
     case 'down': calc.ws ? calc.wsNext() : null; return;
-    case 'onoff': calc.clearEntry(); return;
+    case 'onoff': calc.powerButton(); return;
     case 'right': calc.backspace(); return;
     case 'onc':
       // CE|C: in a worksheet, clear a pending entry, else exit to the standard

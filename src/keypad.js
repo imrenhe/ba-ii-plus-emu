@@ -9,7 +9,7 @@ export const LAYOUT = [
   { code: 'enter', label: 'ENTER', second: 'SET', group: 'control', keys: ['Enter'] },
   { code: 'up', label: '↑', second: 'DEL', group: 'control', keys: ['ArrowUp'] },
   { code: 'down', label: '↓', second: 'INS', group: 'control', keys: ['ArrowDown'] },
-  { code: 'onoff', label: 'ON/OFF', group: 'control', keys: ['Escape'] },
+  { code: 'onoff', label: 'ON/OFF', group: 'control' },
 
   // Row B — 2ND + cash-flow worksheet keys + right arrow
   { code: '2nd', label: '2ND', group: 'second', keys: ['Shift'] },
@@ -61,7 +61,7 @@ export const LAYOUT = [
   { code: 'eq', label: '=', second: 'ANS', group: 'equals', keys: ['='] },
 
   // Row I — CE|C 0 . +/−  (last column intentionally empty, as on the device)
-  { code: 'onc', label: 'CE|C', second: 'CLR WORK', group: 'clear' },
+  { code: 'onc', label: 'CE|C', second: 'CLR WORK', group: 'clear', keys: ['Escape'] },
   { code: '0', label: '0', second: 'MEM', group: 'num', keys: ['0'] },
   { code: 'dot', label: '.', second: 'FORMAT', group: 'num', keys: ['.'] },
   { code: 'neg', label: '+/−', second: 'RESET', group: 'num', keys: ['n'] },

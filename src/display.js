@@ -23,11 +23,19 @@ export function createDisplay(root, calc) {
       </div>
     </div>`;
 
+  const lcdEl = root.querySelector('.lcd');
   const labelEl = root.querySelector('.lcd-label');
   const valueEl = root.querySelector('.lcd-value');
   const flagEls = [...root.querySelectorAll('.flag[data-f]')];
 
   function render() {
+    // Apply the (easter-egg) LCD theme.
+    document.documentElement.dataset.lcd = calc.lcdTheme;
+
+    // Powered off: keep the content (so the screen keeps its size) but let CSS
+    // fade it to black. It wakes on the next key press.
+    lcdEl.classList.toggle('lcd-off', calc.powerOff);
+
     const d = calc.getDisplay();
     labelEl.textContent = d.label ? d.label + (isSetting(d) ? '' : ' =') : '';
     valueEl.textContent = d.value;

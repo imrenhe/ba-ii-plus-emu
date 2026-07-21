@@ -56,7 +56,39 @@ export class Calculator {
     this.ws = null; // active worksheet object
     this.wsIndex = 0;
 
+    // Power / easter egg.
+    this.powerOff = false;
+    this.themeIndex = 0;
+    this._powerStreak = 0;
+    this._lastPowerPress = 0;
+
     this.emit();
+  }
+
+  // ── power button (with a hidden theme-cycle easter egg) ────────────────────
+  static get LCD_THEMES() { return ['green', 'amber', 'blue']; }
+  get lcdTheme() { return Calculator.LCD_THEMES[this.themeIndex]; }
+
+  /** ON/OFF: a single press sleeps/wakes; 7 rapid presses cycle the LCD theme. */
+  powerButton() {
+    const now = Date.now();
+    this._powerStreak = now - this._lastPowerPress < 600 ? this._powerStreak + 1 : 1;
+    this._lastPowerPress = now;
+    if (this._powerStreak >= 7) {
+      this._powerStreak = 0;
+      this.themeIndex = (this.themeIndex + 1) % Calculator.LCD_THEMES.length;
+      this.powerOff = false; // make sure the new theme is visible
+      this.emit();
+      return;
+    }
+    this.powerOff = !this.powerOff;
+    this.emit();
+  }
+
+  /** Wake from sleep on any other key; returns true if it consumed the press. */
+  wake() {
+    if (this.powerOff) { this.powerOff = false; this.emit(); return true; }
+    return false;
   }
 
   // ── subscription ────────────────────────────────────────────────────────
