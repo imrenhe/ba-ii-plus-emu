@@ -23,9 +23,11 @@ Every worksheet is **prompt-driven on the LCD**, exactly like the reference
 device: open it, step through its labelled fields with `↑`/`↓`, type values and
 press `ENTER`, press `CPT` to compute, and `2ND SET` to change a setting.
 
-- **Standard calculator** — arithmetic, `%`, `+/−`, `√x`, `x²`, `1/x`, `yˣ`,
-  `LN`, `eˣ`; full scientific keys: `SIN`/`COS`/`TAN` with `INV` and `HYP`
-  modifiers, `x!`, `nPr`, `nCr`, `RAND`; `STO`/`RCL` memory registers 0–9.
+- **Standard calculator** — arithmetic with **parentheses** and a **Chn / AOS**
+  calculation mode (chain vs. algebraic order-of-operations, set in FORMAT);
+  `%`, `+/−`, `√x`, `x²`, `1/x`, `yˣ`, `LN`, `eˣ`; full scientific keys:
+  `SIN`/`COS`/`TAN` with `INV` and `HYP` modifiers, `x!`, `nPr`, `nCr`, `RAND`;
+  `STO`/`RCL` memory registers 0–9. Numbers show thousands separators as you type.
 - **Time Value of Money** — `N`, `I/Y`, `PV`, `PMT`, `FV`, `CPT`, with `P/Y`/`C/Y`
   and BEGIN/END (annuity-due) modes.
 - **Cash Flow / NPV / IRR** — grouped (repeated-frequency) cash flows; NPV, NFV,
@@ -44,8 +46,9 @@ press `ENTER`, press `CPT` to compute, and `2ND SET` to change a setting.
 - **Profit margin (PROFIT)** — solve any of cost, selling price, margin %.
 - **Percent change (Δ%)** — OLD, NEW, %CH, #PD (compound growth).
 - **Date (DATE)** — days between two dates, or a date plus a day count.
-- **Settings** — decimal places and angle mode (FORMAT), P/Y & C/Y, BGN/END,
-  memory (MEM), and full RESET — all on-screen worksheets.
+- **Settings** — decimal places, Chn/AOS mode and angle mode (FORMAT), P/Y & C/Y,
+  BGN/END, memory (MEM), and full RESET (with a `RST ?` confirmation) — all
+  on-screen worksheets.
 - **Responsive & touch-friendly** — mobile-first, large tap targets, full
   physical-keyboard support on desktop.
 

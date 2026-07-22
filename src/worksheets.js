@@ -33,6 +33,9 @@ const setF = (label, options, get, set) => ({
   label, kind: 'setting', editable: false, computable: false, options, get, set,
   cycle() { set(options[(options.indexOf(get()) + 1) % options.length]); },
 });
+const confirmF = (label, onEnter) => ({
+  label, kind: 'confirm', editable: false, computable: false, onEnter,
+});
 
 // ── the worksheet registry ───────────────────────────────────────────────────
 export function getWorksheet(id, calc) {
@@ -286,6 +289,11 @@ export function getWorksheet(id, calc) {
             outF('ȳ', () => s.meanY, () => s.meanY),
             outF('Sy', () => s.sampleStdDevY, () => s.sampleStdDevY),
             outF('σy', () => s.popStdDevY, () => s.popStdDevY),
+            outF('ΣX', () => s.sumX, () => s.sumX),
+            outF('ΣX²', () => s.sumX2, () => s.sumX2),
+            outF('ΣY', () => s.sumY, () => s.sumY),
+            outF('ΣY²', () => s.sumY2, () => s.sumY2),
+            outF('ΣXY', () => s.sumXY, () => s.sumXY),
             outF('a', () => s.a, () => s.a),
             outF('b', () => s.b, () => s.b),
             outF('r', () => s.r, () => s.r),
@@ -302,6 +310,7 @@ export function getWorksheet(id, calc) {
         fields() {
           return [
             numF('DEC', () => calc.decimals, (v) => calc.setDecimals(v)),
+            setF('MTH', ['Chn', 'AOS'], () => calc.calcMode, (v) => { calc.calcMode = v; }),
             setF('ANG', ['DEG', 'RAD'], () => calc.angleMode, (v) => { calc.angleMode = v; }),
           ];
         },
@@ -334,6 +343,13 @@ export function getWorksheet(id, calc) {
           return calc.mem.map((_, i) =>
             numF('M' + i, () => calc.mem[i], (v) => { calc.mem[i] = v; }));
         },
+      };
+
+    // Reset-all confirmation (2ND RESET): shows "RST ?", ENTER confirms.
+    case 'RESET':
+      return {
+        id, title: 'RST',
+        fields() { return [confirmF('RST', () => calc.reset())]; },
       };
 
     default:

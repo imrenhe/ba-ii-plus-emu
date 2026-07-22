@@ -63,7 +63,7 @@ function routeSecond(code) {
     case 'eq': calc.recallAnswer(); return true;                   // ANS
     case '0': calc.openWorksheet('MEM'); return true;              // MEM
     case 'dot': calc.openWorksheet('FORMAT'); return true;         // FORMAT
-    case 'neg': calc.reset(); return true;                         // RESET
+    case 'neg': calc.openWorksheet('RESET'); return true;          // RESET (confirm)
     default: return false;
   }
 }
@@ -102,8 +102,8 @@ function routePrimary(code) {
     case 'div': calc.setOperator('/'); return;
 
     case 'INV': calc.toggleInverse(); return;
-    case 'lparen': return; // parentheses not modeled in the simple entry engine
-    case 'rparen': return;
+    case 'lparen': calc.openParen(); return;
+    case 'rparen': calc.closeParen(); return;
     case 'pow': calc.setOperator('^pow'); return;
     case 'mul': calc.setOperator('*'); return;
 

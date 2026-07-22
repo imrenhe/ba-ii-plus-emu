@@ -86,6 +86,24 @@ test('TVM key flow: enter N/I/Y/PV/PMT then CPT FV', () => {
   assert.equal(c.getDisplay().label, 'FV');
 });
 
+test('CE|C clears a freshly-typed number to 0', () => {
+  const c = new Calculator();
+  type(c, '789');
+  assert.equal(c.getDisplay().value, '789');
+  c.clearEntry();
+  assert.equal(c.x, 0);
+  assert.equal(c.getDisplay().value, '0.0000');
+});
+
+test('CE|C clears the current operand but keeps the pending calculation', () => {
+  const c = new Calculator();
+  type(c, '100'); c.setOperator('+'); type(c, '789');
+  c.clearEntry();                 // clears 789 → 0, keeps "100 +"
+  assert.equal(c.getDisplay().value, '0.0000');
+  type(c, '50'); c.equals();
+  assert.equal(c.x, 150);
+});
+
 test('ON/OFF: single press sleeps, wake() restores', () => {
   const c = new Calculator();
   assert.equal(c.powerOff, false);

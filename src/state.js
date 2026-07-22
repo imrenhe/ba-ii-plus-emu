@@ -12,7 +12,7 @@
 import { computeTVM } from './engine/tvm.js';
 import { trig, factorial, nPr, nCr, DEG, RAD } from './engine/sci.js';
 import { parseDeviceDate, formatDate } from './engine/dates.js';
-import { formatDisplay, parseEntry } from './format.js';
+import { formatDisplay, formatEntry, parseEntry } from './format.js';
 import { getWorksheet, defaultData, WORKSHEET_DATA_KEY } from './worksheets.js';
 
 const TVM_KEYS = ['N', 'IY', 'PV', 'PMT', 'FV'];
@@ -26,11 +26,17 @@ export class Calculator {
   reset() {
     this.x = 0;
     this.entryStr = null;
-    this.acc = null;
-    this.pendingOp = null;
-    this.lastOp = null; // for repeated "="
+    // Arithmetic evaluator (supports both Chn chain and AOS order-of-operations,
+    // plus parentheses) via an operand stack + operator stack.
+    this.valStack = [];
+    this.opStack = []; // operators; '(' marks a parenthesis
+    this.awaitingOperand = false; // an operator/'(' was just pressed, no operand yet
+    this.operandPushed = false;   // this.x is already represented on valStack
+    this.justEvaluated = false;   // last action was '=' (enables repeated "=")
+    this.lastOp = null;           // for repeated "="
     this.lastOperand = null;
     this.lastAnswer = 0;
+    this.calcMode = 'Chn';        // 'Chn' (chain) or 'AOS' (algebraic order of ops)
 
     this.second = false;
     this.inverse = false; // INV prefix for trig
@@ -100,14 +106,25 @@ export class Calculator {
     if (this.error) return { label: '', value: this.errorString(), flags: this.flags() };
     if (this.ws) {
       const field = this.currentField();
-      const value = this.entryStr !== null ? this.entryStr : this.fieldDisplay(field);
-      return { label: field ? field.label : this.ws.title, value, flags: this.flags() };
+      let value;
+      if (this.entryStr !== null) {
+        // Dates are typed as MM.DDYYYY — don't group those; group plain numbers.
+        value = field && field.kind === 'date' ? this.entryStr : formatEntry(this.entryStr);
+      } else {
+        value = this.fieldDisplay(field);
+      }
+      // Settings show their value directly (no label); confirm keeps its label
+      // (e.g. "RST ?"); both suppress the "=" via flags.noEquals.
+      const label = !field ? this.ws.title
+        : field.kind === 'setting' ? '' : field.label;
+      return { label, value, flags: this.flags() };
     }
-    const value = this.entryStr !== null ? this.entryStr : formatDisplay(this.x, this.decimals);
+    const value = this.entryStr !== null ? formatEntry(this.entryStr) : formatDisplay(this.x, this.decimals);
     return { label: this.label, value, flags: this.flags() };
   }
 
   flags() {
+    const f = this.ws ? this.currentField() : null;
     return {
       second: this.second,
       inverse: this.inverse,
@@ -118,12 +135,14 @@ export class Calculator {
       entry: this.entryStr !== null,
       worksheet: this.ws ? this.ws.title : '',
       nav: !!this.ws,
-      set: !!(this.ws && this.currentField() && this.currentField().kind === 'setting'),
+      set: !!(f && f.kind === 'setting'),
+      noEquals: !!(f && (f.kind === 'setting' || f.kind === 'confirm')),
     };
   }
 
   fieldDisplay(field) {
     if (!field) return '';
+    if (field.kind === 'confirm') return '?';
     if (field.kind === 'date') return formatDate(field.get());
     if (field.kind === 'setting') return field.get();
     const v = field.get();
@@ -154,9 +173,12 @@ export class Calculator {
     } else if (this.entryStr.replace(/[-.]/g, '').length < 12) {
       this.entryStr += d;
     }
-    if (!this.ws) { this.x = parseEntry(this.entryStr); this.label = ''; }
+    if (!this.ws) { this.x = parseEntry(this.entryStr); this.label = ''; this._freshOperand(); }
     this.emit();
   }
+
+  /** Mark this.x as a newly-entered operand (not yet folded into the stacks). */
+  _freshOperand() { this.operandPushed = false; this.awaitingOperand = false; this.justEvaluated = false; }
 
   negate() {
     if (this.entryStr !== null) {
@@ -179,8 +201,11 @@ export class Calculator {
     // CE|C. In a worksheet, clears the entry; twice quits nothing (CLR WORK handles data).
     if (this.entryStr !== null) {
       this.entryStr = null;
+      if (!this.ws) this.x = 0; // clear the displayed number to 0 (device behavior)
     } else if (!this.ws) {
-      this.x = 0; this.acc = null; this.pendingOp = null; this.label = '';
+      this.x = 0; this.label = '';
+      this.valStack = []; this.opStack = [];
+      this.awaitingOperand = false; this.operandPushed = false; this.justEvaluated = false;
     }
     this.clearError();
     this.emit();
@@ -190,41 +215,103 @@ export class Calculator {
     if (this.entryStr !== null && !this.ws) { this.x = parseEntry(this.entryStr); this.entryStr = null; }
   }
 
-  // ── arithmetic ───────────────────────────────────────────────────────────
+  // ── arithmetic (Chn chain, or AOS order-of-operations, with parentheses) ────
+  /** Operator precedence. In Chn mode every operator is equal (left-to-right). */
+  _prec(op) {
+    if (this.calcMode === 'Chn') return 1;
+    switch (op) {
+      case '+': case '-': return 1;
+      case '*': case '/': return 2;
+      case '^pow': case 'nPr': case 'nCr': return 3;
+      default: return 0;
+    }
+  }
+
+  _top() { return this.opStack[this.opStack.length - 1]; }
+
+  _reduceTop() {
+    const op = this.opStack.pop();
+    const b = this.valStack.pop();
+    const a = this.valStack.pop();
+    this.lastOp = op; this.lastOperand = b;
+    this.valStack.push(this.applyOp(a, b, op));
+  }
+
   setOperator(op) {
     if (this.ws) return;
     this.commitEntry();
-    if (this.pendingOp && this.acc !== null) {
-      this.acc = this.applyOp(this.acc, this.x, this.pendingOp);
-      this.x = this.acc;
+    this.justEvaluated = false;
+    if (this.awaitingOperand) {
+      // Two operators in a row → just replace the pending one.
+      if (this._top() !== undefined && this._top() !== '(') this.opStack[this.opStack.length - 1] = op;
+      else this.opStack.push(op);
     } else {
-      this.acc = this.x;
+      if (!this.operandPushed) this.valStack.push(this.x);
+      while (this.opStack.length && this._top() !== '(' && this._prec(this._top()) >= this._prec(op)) {
+        this._reduceTop();
+      }
+      this.x = this.valStack[this.valStack.length - 1];
+      this.opStack.push(op);
+      this.operandPushed = true;
+      this.awaitingOperand = true;
     }
-    this.pendingOp = op;
     this.entryStr = null;
     this.label = '';
+    this._checkResult();
+    this.emit();
+  }
+
+  openParen() {
+    if (this.ws) return;
+    this.commitEntry();
+    this.opStack.push('(');
+    this.awaitingOperand = true;
+    this.operandPushed = false;
+    this.justEvaluated = false;
+    this.entryStr = null;
+    this.emit();
+  }
+
+  closeParen() {
+    if (this.ws) return;
+    this.commitEntry();
+    this.justEvaluated = false;
+    if (!this.awaitingOperand && !this.operandPushed) this.valStack.push(this.x);
+    while (this.opStack.length && this._top() !== '(') this._reduceTop();
+    if (this._top() === '(') this.opStack.pop();
+    if (this.valStack.length) this.x = this.valStack[this.valStack.length - 1];
+    this.awaitingOperand = false;
+    this.operandPushed = true;
+    this.entryStr = null;
+    this._checkResult();
     this.emit();
   }
 
   equals() {
     if (this.ws) return this.wsEnter();
     this.commitEntry();
-    if (this.pendingOp && this.acc !== null) {
-      this.lastOp = this.pendingOp;
-      this.lastOperand = this.x;
-      this.x = this.applyOp(this.acc, this.x, this.pendingOp);
-      this.acc = null;
-      this.pendingOp = null;
-    } else if (this.lastOp !== null && this.lastOperand !== null) {
+    if (this.opStack.length === 0 && this.justEvaluated && this.lastOp !== null) {
       this.x = this.applyOp(this.x, this.lastOperand, this.lastOp); // repeated "="
+    } else {
+      if (!this.operandPushed) this.valStack.push(this.x);
+      while (this.opStack.length) {
+        if (this._top() === '(') this.opStack.pop();
+        else this._reduceTop();
+      }
+      if (this.valStack.length) this.x = this.valStack.pop();
     }
-    if (!this.error) {
-      if (Number.isNaN(this.x)) this.raiseError(2);        // e.g. invalid nPr/nCr
-      else if (!isFinite(this.x)) this.raiseError(1);      // overflow
-    }
+    this.valStack = []; this.opStack = [];
+    this.operandPushed = false; this.awaitingOperand = false; this.justEvaluated = true;
+    this._checkResult();
     this.lastAnswer = this.x;
     this.entryStr = null;
     this.emit();
+  }
+
+  _checkResult() {
+    if (this.error) return;
+    if (Number.isNaN(this.x)) this.raiseError(2);       // e.g. invalid nPr/nCr
+    else if (!isFinite(this.x)) this.raiseError(1);     // overflow / divide by zero
   }
 
   applyOp(a, b, op) {
@@ -243,8 +330,10 @@ export class Calculator {
   percent() {
     if (this.ws) return;
     this.commitEntry();
-    const base = this.acc !== null ? this.acc : 1;
-    this.x = (this.x / 100) * (this.pendingOp ? base : 1);
+    // With a pending binary operator, % means "this percent of the left operand".
+    const hasPending = this.opStack.length > 0 && this._top() !== '(' && this.valStack.length > 0;
+    this.x = hasPending ? (this.x / 100) * this.valStack[this.valStack.length - 1] : this.x / 100;
+    this._freshOperand();
     this.entryStr = null;
     this.emit();
   }
@@ -266,7 +355,7 @@ export class Calculator {
     }
     if (Number.isNaN(r)) this.raiseError(fn === 'inv' ? 1 : 2);
     else if (!isFinite(r)) this.raiseError(1);
-    else { this.x = r; this.lastAnswer = r; }
+    else { this.x = r; this.lastAnswer = r; this._freshOperand(); }
     this.entryStr = null;
     this.emit();
   }
@@ -278,7 +367,7 @@ export class Calculator {
     this.inverse = false; this.hyp = false;
     if (Number.isNaN(r)) this.raiseError(2);
     else if (!isFinite(r)) this.raiseError(1);
-    else { this.x = r; this.lastAnswer = r; }
+    else { this.x = r; this.lastAnswer = r; this._freshOperand(); }
     this.entryStr = null;
     this.emit();
   }
@@ -286,20 +375,21 @@ export class Calculator {
   random() {
     if (this.ws) return;
     this.x = Math.random();
+    this._freshOperand();
     this.entryStr = null;
     this.emit();
   }
 
   toggleInverse() { this.inverse = !this.inverse; this.emit(); }
   toggleHyp() { this.hyp = !this.hyp; this.emit(); }
-  recallAnswer() { if (!this.ws) { this.x = this.lastAnswer; this.entryStr = null; this.emit(); } }
+  recallAnswer() { if (!this.ws) { this.x = this.lastAnswer; this._freshOperand(); this.entryStr = null; this.emit(); } }
 
   // ── memory ────────────────────────────────────────────────────────────────
   arm(kind) { this.commitEntry(); this.storeArmed = kind === 'store'; this.recallArmed = kind === 'recall'; this.emit(); }
 
   memoryDigit(n) {
     if (this.storeArmed) { this.mem[n] = this.currentValue(); this.storeArmed = false; this.emit(); return true; }
-    if (this.recallArmed) { this.x = this.mem[n]; this.entryStr = null; this.recallArmed = false; this.label = `M${n}`; this.emit(); return true; }
+    if (this.recallArmed) { this.x = this.mem[n]; this.entryStr = null; this.recallArmed = false; this.label = `M${n}`; this._freshOperand(); this.emit(); return true; }
     return false;
   }
 
@@ -312,6 +402,7 @@ export class Calculator {
     this.x = this.tvm[key];
     this.entryStr = null;
     this.label = labelFor(key);
+    this._freshOperand();
     this.emit();
   }
 
@@ -372,6 +463,17 @@ export class Calculator {
   wsNext() {
     if (!this.ws) return;
     const len = this.ws.fields().length;
+    // AMORT: scrolling ↓ past the last field (INT) rolls to the next payment
+    // range and recomputes, as on the device.
+    if (this.ws.id === 'AMORT' && this.wsIndex === len - 1) {
+      const a = this.data.amort;
+      const p1 = Math.round(a.p1);
+      const p2 = Math.round(a.p2);
+      const size = Math.max(1, p2 - p1 + 1);
+      a.p1 = p2 + 1;
+      a.p2 = p2 + size;
+      for (const f of this.ws.fields()) if (f.kind === 'output' && f.compute) f.compute();
+    }
     this.wsIndex = (this.wsIndex + 1) % len;
     this.entryStr = null;
     this.emit();
@@ -388,6 +490,7 @@ export class Calculator {
   wsEnter() {
     if (!this.ws) return;
     const field = this.currentField();
+    if (field && field.kind === 'confirm') { field.onEnter(); return; } // e.g. RESET
     if (!field || !field.editable || this.entryStr === null) { this.emit(); return; }
     if (field.kind === 'date') {
       const parsed = parseDeviceDate(this.entryStr);

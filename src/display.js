@@ -47,9 +47,9 @@ export function createDisplay(root, calc) {
     }
   }
 
-  // A setting/label like "END/BGN" shouldn't show "= value"; heuristic: value is non-numeric.
+  // Settings and confirm prompts show their value directly (no "LABEL =").
   function isSetting(d) {
-    return d.flags.set;
+    return d.flags.noEquals;
   }
 
   calc.onChange(render);

@@ -205,7 +205,11 @@ html, body {
 .key-mem { background: var(--mem); }
 .key-op { background: linear-gradient(180deg, var(--op), #e0921a); color: #241a06; }
 .key-op .key-2nd-label { color: #6b4d08; }
-.key-equals { background: linear-gradient(180deg, #6a4de0, #533bc0); color: #fff; }
+.key-equals {
+  background: linear-gradient(180deg, #6a4de0, #533bc0);
+  color: #fff;
+  grid-row: span 2; /* tall = key filling the empty bottom-right cell */
+}
 .key-num { background: var(--num); }
 .key-num:hover { background: var(--num-hi); }
 .key-clear { background: linear-gradient(180deg, var(--clear), #6a3140); color: #ffe9ee; }
