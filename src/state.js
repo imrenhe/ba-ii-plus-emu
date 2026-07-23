@@ -184,7 +184,11 @@ export class Calculator {
     if (this.entryStr !== null) {
       this.entryStr = this.entryStr.startsWith('-') ? this.entryStr.slice(1) : '-' + this.entryStr;
       if (!this.ws) this.x = parseEntry(this.entryStr);
-    } else if (!this.ws) {
+    } else if (this.ws) {
+      // Negate the stored value of the current numeric field.
+      const f = this.currentField();
+      if (f && f.editable && f.kind === 'num') f.set(-(f.get() || 0));
+    } else {
       this.x = -this.x;
     }
     this.emit();
@@ -238,7 +242,7 @@ export class Calculator {
   }
 
   setOperator(op) {
-    if (this.ws) return;
+    if (this.ws || this.error) return;
     this.commitEntry();
     this.justEvaluated = false;
     if (this.awaitingOperand) {
@@ -262,7 +266,7 @@ export class Calculator {
   }
 
   openParen() {
-    if (this.ws) return;
+    if (this.ws || this.error) return;
     this.commitEntry();
     this.opStack.push('(');
     this.awaitingOperand = true;
@@ -273,10 +277,12 @@ export class Calculator {
   }
 
   closeParen() {
-    if (this.ws) return;
+    if (this.ws || this.error) return;
     this.commitEntry();
     this.justEvaluated = false;
-    if (!this.awaitingOperand && !this.operandPushed) this.valStack.push(this.x);
+    // Push the current operand, including when an operator is dangling ("(2+)")
+    // so it repeats rather than folding a missing operand.
+    if (this.awaitingOperand || !this.operandPushed) this.valStack.push(this.x);
     while (this.opStack.length && this._top() !== '(') this._reduceTop();
     if (this._top() === '(') this.opStack.pop();
     if (this.valStack.length) this.x = this.valStack[this.valStack.length - 1];
@@ -289,11 +295,14 @@ export class Calculator {
 
   equals() {
     if (this.ws) return this.wsEnter();
+    if (this.error) return;
     this.commitEntry();
     if (this.opStack.length === 0 && this.justEvaluated && this.lastOp !== null) {
       this.x = this.applyOp(this.x, this.lastOperand, this.lastOp); // repeated "="
     } else {
-      if (!this.operandPushed) this.valStack.push(this.x);
+      // Push the current operand; when an operator is dangling ("5 + ="), repeat
+      // it as the right operand (→ 10) instead of folding a missing operand.
+      if (this.awaitingOperand || !this.operandPushed) this.valStack.push(this.x);
       while (this.opStack.length) {
         if (this._top() === '(') this.opStack.pop();
         else this._reduceTop();
@@ -328,18 +337,24 @@ export class Calculator {
   }
 
   percent() {
-    if (this.ws) return;
+    if (this.ws || this.error) return;
     this.commitEntry();
-    // With a pending binary operator, % means "this percent of the left operand".
-    const hasPending = this.opStack.length > 0 && this._top() !== '(' && this.valStack.length > 0;
-    this.x = hasPending ? (this.x / 100) * this.valStack[this.valStack.length - 1] : this.x / 100;
+    // With a pending + or −, % means "this percent OF the left operand"
+    // (e.g. 200 + 5% = 210). With × / ÷ or nothing pending, % is just ÷100
+    // (e.g. 200 × 5% = 10, 50% = 0.5).
+    const op = this.opStack.length > 0 ? this._top() : null;
+    if ((op === '+' || op === '-') && this.valStack.length > 0) {
+      this.x = (this.x / 100) * this.valStack[this.valStack.length - 1];
+    } else {
+      this.x = this.x / 100;
+    }
     this._freshOperand();
     this.entryStr = null;
     this.emit();
   }
 
   unary(fn) {
-    if (this.ws) return;
+    if (this.ws || this.error) return;
     this.commitEntry();
     const v = this.x;
     let r;
@@ -361,7 +376,7 @@ export class Calculator {
   }
 
   trigFn(fn) {
-    if (this.ws) return;
+    if (this.ws || this.error) return;
     this.commitEntry();
     const r = trig(fn, this.x, { mode: this.angleMode, inverse: this.inverse, hyp: this.hyp });
     this.inverse = false; this.hyp = false;
@@ -388,8 +403,30 @@ export class Calculator {
   arm(kind) { this.commitEntry(); this.storeArmed = kind === 'store'; this.recallArmed = kind === 'recall'; this.emit(); }
 
   memoryDigit(n) {
-    if (this.storeArmed) { this.mem[n] = this.currentValue(); this.storeArmed = false; this.emit(); return true; }
-    if (this.recallArmed) { this.x = this.mem[n]; this.entryStr = null; this.recallArmed = false; this.label = `M${n}`; this._freshOperand(); this.emit(); return true; }
+    if (this.storeArmed) {
+      this.storeArmed = false;
+      if (this.ws) {
+        const f = this.currentField();
+        const v = this.entryStr !== null ? parseEntry(this.entryStr)
+          : f && typeof f.get?.() === 'number' ? f.get() : this.x;
+        this.mem[n] = v;
+      } else {
+        this.mem[n] = this.currentValue();
+      }
+      this.emit();
+      return true;
+    }
+    if (this.recallArmed) {
+      this.recallArmed = false;
+      if (this.ws) {
+        // Show the recalled value as a pending entry so it can be stored with ENTER.
+        this.entryStr = String(this.mem[n]);
+      } else {
+        this.x = this.mem[n]; this.entryStr = null; this.label = `M${n}`; this._freshOperand();
+      }
+      this.emit();
+      return true;
+    }
     return false;
   }
 
@@ -448,6 +485,8 @@ export class Calculator {
     this.wsIndex = 0;
     this.entryStr = null;
     this.computeArmed = false;
+    this.storeArmed = false;
+    this.recallArmed = false;
     this.clearError();
     this.emit();
   }
@@ -463,17 +502,6 @@ export class Calculator {
   wsNext() {
     if (!this.ws) return;
     const len = this.ws.fields().length;
-    // AMORT: scrolling ↓ past the last field (INT) rolls to the next payment
-    // range and recomputes, as on the device.
-    if (this.ws.id === 'AMORT' && this.wsIndex === len - 1) {
-      const a = this.data.amort;
-      const p1 = Math.round(a.p1);
-      const p2 = Math.round(a.p2);
-      const size = Math.max(1, p2 - p1 + 1);
-      a.p1 = p2 + 1;
-      a.p2 = p2 + size;
-      for (const f of this.ws.fields()) if (f.kind === 'output' && f.compute) f.compute();
-    }
     this.wsIndex = (this.wsIndex + 1) % len;
     this.entryStr = null;
     this.emit();

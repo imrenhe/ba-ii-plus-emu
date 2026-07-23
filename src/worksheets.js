@@ -54,8 +54,10 @@ export function getWorksheet(id, calc) {
               (v) => { g.count = Math.max(1, Math.round(v)); }));
           });
           const n = cf.groups.length;
+          // Entering this trailing prompt (even with 0) creates the cash flow so
+          // its frequency F0n becomes reachable — a 0 cash flow is a real entry.
           arr.push(numF('C' + pad2(n + 1), () => 0, (v) => {
-            if (v !== 0) cf.groups.push({ amount: v, count: 1 });
+            cf.groups.push({ amount: v, count: 1 });
           }));
           return arr;
         },
@@ -104,12 +106,14 @@ export function getWorksheet(id, calc) {
             a.prn = r.principal * sign;
             a.int = r.interest * sign;
           };
+          // BAL/PRN/INT auto-compute when displayed (getter runs the schedule),
+          // matching the device — no need to press CPT on each.
           return [
             numF('P1', () => a.p1, (v) => { a.p1 = Math.round(v); }),
             numF('P2', () => a.p2, (v) => { a.p2 = Math.round(v); }),
-            outF('BAL', () => a.bal, () => { run(); return a.bal; }),
-            outF('PRN', () => a.prn, () => { run(); return a.prn; }),
-            outF('INT', () => a.int, () => { run(); return a.int; }),
+            outF('BAL', () => { run(); return a.bal; }, () => { run(); return a.bal; }),
+            outF('PRN', () => { run(); return a.prn; }, () => { run(); return a.prn; }),
+            outF('INT', () => { run(); return a.int; }, () => { run(); return a.int; }),
           ];
         },
       };

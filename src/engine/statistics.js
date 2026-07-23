@@ -20,11 +20,13 @@ export function oneVarStats(points) {
     sumX2 += x * x * freq;
   }
 
-  const mean = n > 0 ? sumX / n : NaN;
-  const variancePop = n > 0 ? sumX2 / n - mean * mean : NaN;
+  // Degenerate data (no points, or all frequencies 0) reports zeros rather
+  // than NaN so the worksheet stays usable.
+  const mean = n > 0 ? sumX / n : 0;
+  const variancePop = n > 0 ? sumX2 / n - mean * mean : 0;
   const popStdDev = Math.sqrt(Math.max(0, variancePop));
   const sampleStdDev =
-    n > 1 ? Math.sqrt(Math.max(0, (sumX2 - n * mean * mean) / (n - 1))) : NaN;
+    n > 1 ? Math.sqrt(Math.max(0, (sumX2 - n * mean * mean) / (n - 1))) : 0;
 
   return { n, sumX, sumX2, mean, sampleStdDev, popStdDev };
 }

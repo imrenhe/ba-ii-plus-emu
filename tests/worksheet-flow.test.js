@@ -35,6 +35,19 @@ test('CF entry → NPV and IRR via the prompt flow', () => {
   near(c.data.cf.irr, 17.805, 1e-2);
 });
 
+test('CF: entering a zero cash flow (C01=0) still exposes F01', () => {
+  const c = new Calculator();
+  c.openWorksheet('CF');
+  enter(c, '-100');            // CF0
+  c.wsNext(); enter(c, '0');   // C01 = 0 → must create the group
+  assert.equal(c.data.cf.groups.length, 1);
+  assert.equal(c.data.cf.groups[0].amount, 0);
+  c.wsNext();                  // ↓ should reach F01
+  assert.equal(c.currentField().label, 'F01');
+  enter(c, '3');               // F01 = 3
+  assert.equal(c.data.cf.groups[0].count, 3);
+});
+
 test('CF frequency groups: -5000 then 1000 ×7 gives IRR ≈ 9.196%', () => {
   const c = new Calculator();
   c.openWorksheet('CF');

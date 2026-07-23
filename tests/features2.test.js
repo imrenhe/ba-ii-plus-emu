@@ -49,6 +49,74 @@ test('repeated "=" reapplies the last operation', () => {
   assert.equal(c.x, 14);
 });
 
+// ── percent semantics (device-style) ─────────────────────────────────────────
+test('% with × / ÷ is a plain ÷100; with + / − it is percent-of-operand', () => {
+  const mul = new Calculator();
+  type(mul, '200'); mul.setOperator('*'); type(mul, '5'); mul.percent(); mul.equals();
+  assert.equal(mul.x, 10);            // 200 × 5% = 10
+
+  const div = new Calculator();
+  type(div, '80'); div.setOperator('/'); type(div, '5'); div.percent(); div.equals();
+  assert.equal(div.x, 1600);          // 80 ÷ 5% = 80 / 0.05
+
+  const add = new Calculator();
+  type(add, '200'); add.setOperator('+'); type(add, '5'); add.percent(); add.equals();
+  assert.equal(add.x, 210);           // 200 + 5% = 210
+
+  const bare = new Calculator();
+  type(bare, '50'); bare.percent();
+  assert.equal(bare.x, 0.5);
+});
+
+// ── dangling operator repeats the operand instead of erroring ─────────────────
+test('operator then "=" repeats the operand (5 + = → 10)', () => {
+  const c = new Calculator();
+  type(c, '5'); c.setOperator('+'); c.equals();
+  assert.equal(c.x, 10);
+  const m = new Calculator();
+  type(m, '7'); m.setOperator('*'); m.equals();
+  assert.equal(m.x, 49);
+});
+
+test('close-paren with a dangling operator repeats: (2 + ) = 4', () => {
+  const c = new Calculator();
+  c.openParen(); type(c, '2'); c.setOperator('+'); c.closeParen(); c.equals();
+  assert.equal(c.x, 4);
+});
+
+// ── error state blocks further operations until cleared ──────────────────────
+test('operations are ignored while an error is shown', () => {
+  const c = new Calculator();
+  type(c, '5'); c.setOperator('/'); type(c, '0'); c.equals(); // Error 1
+  assert.equal(c.getDisplay().value, 'Error 1');
+  c.setOperator('+');            // ignored — still error
+  assert.equal(c.getDisplay().value, 'Error 1');
+  c.unary('sqrt');              // ignored
+  assert.equal(c.getDisplay().value, 'Error 1');
+  type(c, '9');                 // a digit clears the error and starts fresh
+  assert.equal(c.getDisplay().value, '9');
+});
+
+// ── worksheet: negate a stored field, and STO/RCL ────────────────────────────
+test('+/− negates a stored worksheet field value', () => {
+  const c = new Calculator();
+  c.openWorksheet('CF');
+  type(c, '100'); c.wsEnter(); // CF0 = 100 (stored, no active entry)
+  c.negate();
+  assert.equal(c.data.cf.cf0, -100);
+});
+
+test('RCL inside a worksheet recalls into the entry so ENTER stores it', () => {
+  const c = new Calculator();
+  c.mem[3] = 42;
+  c.openWorksheet('CF');
+  c.wsNext();              // C01 slot
+  c.arm('recall'); c.memoryDigit(3);
+  assert.equal(c.getDisplay().value, '42');
+  c.wsEnter();
+  assert.equal(c.data.cf.groups[0].amount, 42);
+});
+
 // ── thousands separators during entry ────────────────────────────────────────
 test('formatEntry groups the integer part while typing', () => {
   assert.equal(formatEntry('1234567'), '1,234,567');
@@ -78,18 +146,30 @@ test('RESET worksheet: ENTER confirms and restores defaults', () => {
   assert.equal(c.tvm.N, 0);
 });
 
-// ── AMORT auto-roll ──────────────────────────────────────────────────────────
-test('AMORT rolls to the next payment range when scrolling past INT', () => {
+// ── AMORT: values auto-compute on display; P1/P2 stay put ─────────────────────
+test('AMORT BAL/PRN/INT auto-compute when arrowed to (no CPT)', () => {
+  const c = new Calculator();
+  c.setPY(12); c.setCY(12);
+  c.tvm = { N: 360, IY: 6, PV: 100000, PMT: -599.55, FV: 0 };
+  c.openWorksheet('AMORT'); // P1=1, P2=1 defaults
+  c.wsNext(); c.wsNext();   // → BAL (no CPT pressed)
+  assert.equal(c.currentField().label, 'BAL');
+  near(c.currentField().get(), 99900.45);
+  c.wsNext(); near(c.currentField().get(), -99.55);  // PRN
+  c.wsNext(); near(c.currentField().get(), -500);    // INT
+});
+
+test('AMORT does not auto-advance P1/P2 when scrolling past INT', () => {
   const c = new Calculator();
   c.setPY(12); c.setCY(12);
   c.tvm = { N: 360, IY: 6, PV: 100000, PMT: -599.55, FV: 0 };
   c.openWorksheet('AMORT');
-  enter(c, '1');          // P1 = 1
-  c.wsNext(); enter(c, '12'); // P2 = 12
-  c.wsNext(); c.wsNext(); c.wsNext(); // BAL, PRN, INT (now at last field)
-  c.wsNext();             // roll past INT
-  assert.equal(c.data.amort.p1, 13);
-  assert.equal(c.data.amort.p2, 24);
+  enter(c, '1');              // P1 = 1
+  c.wsNext(); enter(c, '1');  // P2 = 1
+  c.wsNext(); c.wsNext(); c.wsNext(); // BAL, PRN, INT
+  c.wsNext();                 // past INT → wraps to P1
+  assert.equal(c.data.amort.p1, 1);
+  assert.equal(c.data.amort.p2, 1);
 });
 
 // ── setting fields show their value directly (bond day-count label) ──────────
