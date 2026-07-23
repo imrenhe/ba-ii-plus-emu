@@ -132,7 +132,9 @@ export class Calculator {
       begin: this.begin,
       rad: this.angleMode === RAD,
       compute: this.computeArmed,
-      entry: this.entryStr !== null,
+      // ENTER indicator: lit when the current field is one you store with ENTER
+      // (editable inputs, or the RESET confirm) — off for outputs/settings/STD.
+      enter: !!(f && (f.editable || f.kind === 'confirm')),
       worksheet: this.ws ? this.ws.title : '',
       nav: !!this.ws,
       set: !!(f && f.kind === 'setting'),

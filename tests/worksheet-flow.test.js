@@ -133,6 +133,21 @@ test('BRKEVN solves the shown variable with CPT', () => {
   near(c.data.brkevn.PFT, 1000, 1e-6);
 });
 
+test('ENTER indicator lights only on fields stored with ENTER', () => {
+  const c = new Calculator();
+  assert.equal(c.flags().enter, false); // standard mode
+  c.openWorksheet('CF');
+  assert.equal(c.flags().enter, true);  // CF0 editable
+  c.openWorksheet('NPV');
+  c.wsNext();                            // NPV output field
+  assert.equal(c.currentField().label, 'NPV');
+  assert.equal(c.flags().enter, false);
+  c.openWorksheet('BOND');
+  c.wsIndex = 4;                         // day-count setting
+  assert.equal(c.flags().enter, false);
+  assert.equal(c.flags().set, true);
+});
+
 test('QUIT returns to the standard calculator', () => {
   const c = new Calculator();
   c.openWorksheet('CF');
